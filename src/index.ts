@@ -8,10 +8,7 @@ type Patch = {
     name: string;
 };
 
-type Node = string|{
-    title: string;
-    content: Node[];
-};
+// TODO normalize text element
 
 const getPatchesList = async (): Promise<Patch[]> => {
     const dom = await JSDOM.fromURL("https://www.swtor.com/patchnotes");
@@ -39,6 +36,139 @@ const getPatchesList = async (): Promise<Patch[]> => {
     return list;
 };
 
+const isHeader = (element: Element) => {
+    switch (element.tagName) {
+        case "H1":
+        case "H2":
+        case "H3":
+        case "H4":
+        case "H5":
+        case "H6":
+            return true;
+        case "P":
+            return !getTextContent(element) && element.querySelector("strong:only-child") !== null;
+        default:
+            return false;
+    }
+};
+
+const {TEXT_NODE} = new JSDOM().window.Node;
+const getTextContent = (element: Element) => Array.from(element.childNodes)
+    .filter(({nodeType}) => nodeType === TEXT_NODE)
+    .map(({textContent}) => textContent)
+    .join("")
+    .trim();
+
+type Test = string|{
+    header: string;
+    content: Test[];
+};
+
+const parseElement = (rest: Element[]): {result: Test; rest: Element[]} => {
+    let i = 0;
+    const element = rest[i++];
+
+    if (isHeader(element)) {
+        if (i < rest.length && isHeader(rest[i])) {
+            const result = parseElement(rest.slice(i));
+            return {
+                result: {
+                    header: getTextContent(element),
+                    content: [result.result],
+                },
+                rest: result.rest,
+            }
+        } else {
+            let j = i;
+            while (j < rest.length && !isHeader(rest[j])) ++j;
+
+            return {
+                result: {
+                    header: getTextContent(element),
+                    content: process([...element.children, ...rest.slice(i, j)]),
+                },
+                rest: rest.slice(j),
+            };
+        }
+    }
+
+    if (!element.children.length) {
+        return {
+            result: element.textContent.trim(),
+            rest: rest.slice(i),
+        };
+    }
+
+    let j = i;
+    while (j < rest.length && !isHeader(rest[j])) ++j;
+
+    return {
+        result: {
+            header: "",
+            content: [getTextContent(element), ...process([...element.children, ...rest.slice(i, j)])],
+        },
+        rest: rest.slice(j),
+    };
+};
+
+const process = (elements: Element[]) => {
+    const result = [];
+    let rest = [...elements];
+    while (rest.length) {
+        const parse = parseElement(rest);
+        rest = parse.rest;
+        result.push(parse.result);
+    }
+
+    return result;
+};
+
+const normalize = (node: Test): Test|null => {
+    if (typeof node === "string") {
+        return node.trim() || null;
+    }
+
+    const normalizedContent = node.content
+        .map(normalize)
+        .filter(Boolean) as Test[];
+
+    const [firstChild] = normalizedContent;
+    if (firstChild && typeof firstChild !== "string" && !firstChild.header) {
+        return {
+            header: node.header,
+            content: firstChild.content,
+        };
+    }
+
+    let skipNext = false;
+    const content = normalizedContent.reduce<Test[]>((acc, child, i, self) => {
+            if (skipNext) {
+                skipNext = false;
+                return acc;
+            }
+
+            const next = self[i + 1];
+            if (typeof child === "string" && typeof next === "object" && !next.header) {
+                skipNext = true;
+                acc.push({
+                    header: child,
+                    content: next.content,
+                });
+
+                return acc;
+            }
+
+            acc.push(child);
+
+            return acc;
+        }, []);
+
+    return {
+        header: node.header,
+        content,
+    };
+};
+
 const parsePatch = async (patch: Patch) => {
     const dom = await JSDOM.fromURL(patch.url);
     const {document} = dom.window;
@@ -48,75 +178,16 @@ const parsePatch = async (patch: Patch) => {
         throw new Error("could not parse title");
     }
 
-    const body = document.querySelectorAll("#mainContent #contentPad > *");
+    const body = Array.from(document.querySelectorAll("#mainContent #contentPad > *"));
 
-    let currentSection = "";
-    const content = Array.from(body).reduce<Record<string, Node[]>>((acc, element) => {
-        switch (element.tagName) {
-        case "H2":
-        case "H3":
-        case "H4": {
-            const header = element.querySelector("strong:only-child")?.textContent ?? element.textContent;
-            currentSection = header;
-            return acc;
-        }
-        case "P": {
-            const header = element.querySelector("strong:only-child")?.textContent;
-            if (header) {
-                currentSection = header;
-                return acc;
-            }
-        }}
+    const result = process(body);
 
-        if (!(currentSection in acc)) {
-            acc[currentSection] = [];
-        }
-        acc[currentSection].push(...parseContent(element));
-
-        return acc;
-    }, {});
-
-    const node = {
-        title,
-        content: Object.entries(content).map(([title, content]) => ({
-            title,
-            content,
-        })),
-    };
-
-    return {
-        patch,
-        node,
-    };
-};
-
-const {TEXT_NODE} = new JSDOM().window.Node;
-const parseContent = (node: Element): Node[] => {
-    if (!node.children.length) {
-        return [node.textContent];
-    }
-
-    const title = Array.from(node.childNodes)
-        .filter(({nodeType}) => nodeType === TEXT_NODE)
-        .map(({textContent}) => textContent)
-        .join("")
-        .trim();
-
-    const content = Array.from(node.children).flatMap(parseContent);
-
-    if (!title && node.tagName !== "UL") {
-        return content;
-    }
-
-    return [{
-        title,
-        content,
-    }];
+    return result.map(normalize).filter(Boolean);
 };
 
 // getPatchesList()
-//     .then((list) => Promise.all(list.map(parsePatch)))
+//     .then((list) => Promise.all(list.filter(({id}) => id <= 165).map(parsePatch)))
 //     .then((result) => writeFileSync("dump.json", JSON.stringify(result, null, 4)));
 
-parsePatch({url: "https://www.swtor.com/patchnotes/12092025/game-update-7.8-pursuit-ruin"} as Patch)
+parsePatch({url: "https://www.swtor.com/patchnotes/1.1.0/rise-rakghouls"} as Patch)
     .then((result) => writeFileSync("dump.json", JSON.stringify(result, null, 4)));
