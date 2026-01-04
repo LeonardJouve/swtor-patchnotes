@@ -68,8 +68,8 @@ const parsePatch = async (patch: Patch) => {
             }
         }}
 
-            if (!(currentSection in acc)) {
-                acc[currentSection] = [];
+        if (!(currentSection in acc)) {
+            acc[currentSection] = [];
         }
         acc[currentSection].push(...parseContent(element));
 
@@ -104,7 +104,7 @@ const parseContent = (node: Element): Node[] => {
 
     const content = Array.from(node.children).flatMap(parseContent);
 
-    if (!title.length) {
+    if (!title && node.tagName !== "UL") {
         return content;
     }
 
@@ -114,6 +114,9 @@ const parseContent = (node: Element): Node[] => {
     }];
 };
 
-getPatchesList()
-    .then((list) => Promise.all(list.map(parsePatch)))
+// getPatchesList()
+//     .then((list) => Promise.all(list.map(parsePatch)))
+//     .then((result) => writeFileSync("dump.json", JSON.stringify(result, null, 4)));
+
+parsePatch({url: "https://www.swtor.com/patchnotes/12092025/game-update-7.8-pursuit-ruin"} as Patch)
     .then((result) => writeFileSync("dump.json", JSON.stringify(result, null, 4)));
