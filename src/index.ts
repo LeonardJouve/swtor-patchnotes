@@ -58,24 +58,20 @@ const parsePatch = async (patch: Patch) => {
         case "H4": {
             const header = element.querySelector("strong:only-child")?.textContent ?? element.textContent;
             currentSection = header;
-            break;
+            return acc;
         }
         case "P": {
             const header = element.querySelector("strong:only-child")?.textContent;
             if (header) {
                 currentSection = header;
-                break;
+                return acc;
             }
+        }}
 
-            // otherwise fallthrough
-        }
-        default:
             if (!(currentSection in acc)) {
                 acc[currentSection] = [];
-            }
-            acc[currentSection].push(parseContent(element));
-            break;
         }
+        acc[currentSection].push(...parseContent(element));
 
         return acc;
     }, {});
@@ -94,15 +90,28 @@ const parsePatch = async (patch: Patch) => {
     };
 };
 
-const parseContent = (node: Element): Node => {
+const {TEXT_NODE} = new JSDOM().window.Node;
+const parseContent = (node: Element): Node[] => {
     if (!node.children.length) {
-        return node.textContent;
+        return [node.textContent];
     }
 
-    return {
-        title: node.textContent,
-        content: Array.from(node.children).map(parseContent),
-    };
+    const title = Array.from(node.childNodes)
+        .filter(({nodeType}) => nodeType === TEXT_NODE)
+        .map(({textContent}) => textContent)
+        .join("")
+        .trim();
+
+    const content = Array.from(node.children).flatMap(parseContent);
+
+    if (!title.length) {
+        return content;
+    }
+
+    return [{
+        title,
+        content,
+    }];
 };
 
 getPatchesList()
