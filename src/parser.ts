@@ -1,8 +1,8 @@
 import Node from "./node";
 
-type Test = string|{
+export type AbstractPatchTree = {
     header: string;
-    content: Test[];
+    content: AbstractPatchTree[];
 };
 
 export default class Parser {
@@ -26,21 +26,22 @@ export default class Parser {
         return this.nodes[this.i++];
     }
 
-    parseOne(): Test {
+    parseOne(): AbstractPatchTree {
         const node = this.nextNode();
 
+        const childrenParser = new Parser(node.children);
+        const content = childrenParser.parseAll();
+
         if (node.isHeader()) {
-            const peek = this.peekNode();
-            if (!this.isEmpty() && peek.isHeader()) {
-                const content = [...new Parser(node.children).parseAll(), this.parseOne()];
+            if (!this.isEmpty() && this.peekNode().isHeader()) {
+                content.push(this.parseOne());
 
                 return {
                     header: node.text,
                     content,
                 };
             } else {
-                const content = new Parser(node.children).parseAll();
-                while (!this.isEmpty() && !this.peekNode()!.isHeader()) {
+                while (!this.isEmpty() && !this.peekNode().isHeader()) {
                     content.push(this.parseOne());
                 }
 
@@ -51,9 +52,15 @@ export default class Parser {
             }
         }
 
-        const content = [node.text, ...new Parser(node.children).parseAll()];
-        while (!this.isEmpty() && !this.peekNode()!.isHeader()) {
-            content.push(this.parseOne());
+        if (node.text) {
+            content.splice(0, 0, {
+                header: node.text,
+                content: [],
+            });
+        }
+
+        if (content.length === 1) {
+            return content[0];
         }
 
         return {
@@ -62,8 +69,8 @@ export default class Parser {
         };
     }
 
-    parseAll(): Test[] {
-        const result: Test[] = [];
+    parseAll(): AbstractPatchTree[] {
+        const result: AbstractPatchTree[] = [];
         while (!this.isEmpty()) {
             result.push(this.parseOne());
         }

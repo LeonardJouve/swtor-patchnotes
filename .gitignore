@@ -1,3 +1,4 @@
 node_modules
 dist
 *.json
+!.vscode/launch.json

@@ -39,6 +39,7 @@ export const parsePatch = async (patch: Patch) => {
     const dom = await JSDOM.fromURL(patch.url);
     const {document} = dom.window;
 
+    // TODO
     const title = document.querySelector(".pageContainer .mainTitle")?.textContent;
     if (!title) {
         throw new Error("could not parse title");

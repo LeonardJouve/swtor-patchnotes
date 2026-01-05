@@ -3,7 +3,7 @@ import {formatJSON, write} from "./format";
 
 parsePatch({url: "https://www.swtor.com/patchnotes/1.1.0/rise-rakghouls"} as Patch)
     .then(formatJSON)
-    .then(write);
+    .then(write("dump.json"));
 
 // getPatchesList()
 //     .then((list) => Promise.all(list.filter(({id}) => id <= 165).map(parsePatch)))
