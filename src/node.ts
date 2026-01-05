@@ -41,8 +41,8 @@ export default class Node {
             }).filter((child) => child.text || child.children.length);
 
         if (normalizedChildren.length === 1) {
-            const [{text, tag, children}] = normalizedChildren;
-            return new Node(text, tag, children);
+            const [{text, children}] = normalizedChildren;
+            return new Node(text, element.tagName, children);
         }
 
         return new Node("", element.tagName, normalizedChildren);

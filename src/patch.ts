@@ -35,8 +35,8 @@ export const getPatchesList = async (): Promise<Patch[]> => {
     return list;
 };
 
-export const parsePatch = async (patch: Patch) => {
-    const dom = await JSDOM.fromURL(patch.url);
+export const parsePatch = async (url: string) => {
+    const dom = await JSDOM.fromURL(url);
     const {document} = dom.window;
 
     // TODO
