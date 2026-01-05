@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug TS with tsx",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "node",
+            "runtimeArgs": [
+                "--inspect",
+                "--enable-source-maps"
+            ],
+            "program": "${workspaceFolder}/node_modules/tsx/dist/cli.mjs",
+            "args": [
+                "src/index.ts"
+            ],
+            "cwd": "${workspaceFolder}",
+            "skipFiles": ["<node_internals>/**"]
+        }
+    ]
+}
