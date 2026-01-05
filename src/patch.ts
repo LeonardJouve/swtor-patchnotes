@@ -28,7 +28,7 @@ export const getPatchesList = async (): Promise<Patch[]> => {
             id: nodes.length - i,
             url: node.href,
             date: date ? new Date(date) : null,
-            name: node.textContent,
+            name: node.textContent.trim(),
         };
     });
 
