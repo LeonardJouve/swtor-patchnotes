@@ -68,11 +68,97 @@ type Test = string|{
     content: Test[];
 };
 
-type Node = {
+class Node {
     text: string;
     tag: null|string;
     children: Node[];
+
+    constructor(text: string, tag: null|string, children: Node[]) {
+        this.text = text;
+        this.tag = tag;
+        this.children = children;
+    }
+
+    isHeader() {
+        switch (this.tag) {
+        case "H2":
+        case "H3":
+        case "H4":
+        case "H5":
+        case "H6":
+            return !this.children.length;
+        default:
+            return false;
+        }
+    }
 };
+
+class Parser {
+    private i: number;
+    private nodes: Node[];
+
+    constructor(nodes: Node[]) {
+        this.i = 0;
+        this.nodes = [...nodes];
+    }
+
+    isEmpty() {
+        return this.i < this.nodes.length;
+    }
+
+    peekNode() {
+        return this.nodes[this.i];
+    }
+
+    nextNode() {
+        return this.nodes[this.i++];
+    }
+
+    parseOne(): Test {
+        const node = this.nextNode();
+
+        if (node.isHeader()) {
+            const peek = this.peekNode();
+            if (peek?.isHeader()) {
+                const content = this.parseOne();
+
+                return {
+                    header: node.text,
+                    content: [content],
+                };
+            } else {
+                const content: Test[] = [];
+                while (!this.isEmpty() && !this.peekNode().isHeader()) {
+                    content.push(this.parseOne());
+                }
+
+                return {
+                    header: node.text,
+                    content,
+                };
+            }
+        }
+
+        const content: Test[] = [node.text, ...new Parser(node.children).parseAll()];
+        while (!this.isEmpty() && !this.peekNode().isHeader()) {
+            content.push(this.parseOne());
+        }
+
+        return {
+            header: "",
+            content,
+        };
+    }
+
+    parseAll(): Test[] {
+        const result: Test[] = [];
+        while (!this.isEmpty()) {
+            result.push(this.parseOne());
+        }
+
+        return result;
+    }
+}
 
 const parseElement = (rest: Element[]): {result: Test; rest: Element[]} => {
     let i = 0;
@@ -186,28 +272,18 @@ const normalizeElement = (element: Element): Node => {
             case NodeType.ELEMENT:
                 return normalizeElement(node as Element);
             case NodeType.TEXT:
-                return {
-                    text: node.textContent!.trim(),
-                    tag: null,
-                    children: [],
-                }
+                return new Node(node.textContent!.trim(), null, []);
             default:
                 throw new Error(`Unhandled node type: ${node.nodeType}`);
             }
         }).filter((child) => child.text || child.children.length);
 
     if (normalizedChildren.length === 1) {
-        return {
-            ...normalizedChildren[0],
-            tag: element.tagName,
-        };
+        const [{text, tag, children}] = normalizedChildren;
+        return new Node(text, tag, children);
     }
 
-    return {
-        text: "",
-        tag: element.tagName,
-        children: normalizedChildren,
-    };
+    return new Node("", element.tagName, normalizedChildren);
 };
 
 const parsePatch = async (patch: Patch) => {
@@ -223,7 +299,10 @@ const parsePatch = async (patch: Patch) => {
 
     const result = process(body);
 
-    return body.map(normalizeElement);
+    const normalizedBody = body.map(normalizeElement);
+    const parser = new Parser(normalizedBody);
+
+    return parser.parseAll();
 };
 
 // getPatchesList()
