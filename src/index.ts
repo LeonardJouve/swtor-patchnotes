@@ -52,9 +52,13 @@ const isHeader = (element: Element) => {
     }
 };
 
-const {TEXT_NODE} = new JSDOM().window.Node;
+enum NodeType {
+    ELEMENT = 1,
+    TEXT = 3,
+}
+
 const getTextContent = (element: Element) => Array.from(element.childNodes)
-    .filter(({nodeType}) => nodeType === TEXT_NODE)
+    .filter(({nodeType}) => nodeType === NodeType.TEXT)
     .map(({textContent}) => textContent)
     .join("")
     .trim();
@@ -62,6 +66,12 @@ const getTextContent = (element: Element) => Array.from(element.childNodes)
 type Test = string|{
     header: string;
     content: Test[];
+};
+
+type Node = {
+    text: string;
+    tag: null|string;
+    children: Node[];
 };
 
 const parseElement = (rest: Element[]): {result: Test; rest: Element[]} => {
@@ -169,6 +179,37 @@ const normalize = (node: Test): Test|null => {
     };
 };
 
+const normalizeElement = (element: Element): Node => {
+    const normalizedChildren = Array.from(element.childNodes)
+        .map((node) => {
+            switch (node.nodeType) {
+            case NodeType.ELEMENT:
+                return normalizeElement(node as Element);
+            case NodeType.TEXT:
+                return {
+                    text: node.textContent!.trim(),
+                    tag: null,
+                    children: [],
+                }
+            default:
+                throw new Error(`Unhandled node type: ${node.nodeType}`);
+            }
+        }).filter((child) => child.text || child.children.length);
+
+    if (normalizedChildren.length === 1) {
+        return {
+            ...normalizedChildren[0],
+            tag: element.tagName,
+        };
+    }
+
+    return {
+        text: "",
+        tag: element.tagName,
+        children: normalizedChildren,
+    };
+};
+
 const parsePatch = async (patch: Patch) => {
     const dom = await JSDOM.fromURL(patch.url);
     const {document} = dom.window;
@@ -182,7 +223,7 @@ const parsePatch = async (patch: Patch) => {
 
     const result = process(body);
 
-    return result.map(normalize).filter(Boolean);
+    return body.map(normalizeElement);
 };
 
 // getPatchesList()
@@ -191,3 +232,4 @@ const parsePatch = async (patch: Patch) => {
 
 parsePatch({url: "https://www.swtor.com/patchnotes/1.1.0/rise-rakghouls"} as Patch)
     .then((result) => writeFileSync("dump.json", JSON.stringify(result, null, 4)));
+
