@@ -1,6 +1,7 @@
 import {JSDOM} from "jsdom";
 import Node from "./node";
 import Parser from "./parser";
+import {formatCSV, formatCSVHeader, write} from "./format";
 
 export type Patch = {
     id: number;
@@ -39,16 +40,27 @@ export const parsePatch = async (url: string) => {
     const dom = await JSDOM.fromURL(url);
     const {document} = dom.window;
 
-    // TODO
-    const title = document.querySelector(".pageContainer .mainTitle")?.textContent;
-    if (!title) {
-        throw new Error("could not parse title");
-    }
-
     const body = Array.from(document.querySelectorAll("#mainContent #contentPad > *"));
 
     const normalizedBody = body.map(Node.normalize);
     const parser = new Parser(normalizedBody);
 
     return parser.parseAll();
+};
+
+export const dumpPatches = async (filename = "dump.csv") => {
+    const patches = await getPatchesList();
+    const trees = await Promise.all(patches.map(({url}) => parsePatch(url)));
+    const csv = [formatCSVHeader()]
+        .concat(trees.flatMap((tree, i) => tree.map((node) => formatCSV(patches[i], node))))
+        .join("\n");
+    return write(csv, filename);
+}
+
+export const dumpPatch = async (url: string, filename = "dump.csv") => {
+    const tree = await parsePatch(url);
+    const csv = tree
+        .map((node) => formatCSV({id: 0, name: "", url: "", date: null}, node))
+        .join("\n");
+    return write(csv, filename);
 };

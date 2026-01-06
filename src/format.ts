@@ -28,4 +28,4 @@ export const formatCSV = (patch: Patch, tree: AbstractPatchTree, header = ""): s
         .join("\n");
 };
 
-export const write = (filename: string) => (content: string) => writeFileSync(filename, content, {encoding: "utf-8"});
+export const write = (content: string, filename: string) => writeFileSync(filename, content, {encoding: "utf-8"});

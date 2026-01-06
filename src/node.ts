@@ -15,16 +15,11 @@ export default class Node {
     }
 
     isHeader() {
-        switch (this.tag) {
-        case "H2":
-        case "H3":
-        case "H4":
-        case "H5":
-        case "H6":
-            return !this.children.length;
-        default:
-            return false;
-        }
+        return !this.children.length && this.tag && ["H2", "H3", "H4", "H5", "H6"].includes(this.tag);
+    }
+
+    isInline() {
+        return !this.children.length && [null, "SPAN", "I", "A", "B", "STRONG", "EM", "CODE"].includes(this.tag);
     }
 
     static normalize(element: Element): Node {
@@ -40,11 +35,23 @@ export default class Node {
                 }
             }).filter((child) => child.text || child.children.length);
 
-        if (normalizedChildren.length === 1) {
-            const [{text, children}] = normalizedChildren;
+        const flattenedChildren: Node[] = [];
+        for (let i = 0; i < normalizedChildren.length; ++i) {
+            const child = normalizedChildren[i];
+            if (child.isInline()) {
+                while (normalizedChildren[i + 1]?.isInline()) {
+                    child.text += " " + normalizedChildren[++i].text;
+                }
+            }
+
+            flattenedChildren.push(child);
+        }
+
+        if (flattenedChildren.length === 1) {
+            const [{text, children}] = flattenedChildren;
             return new Node(text, element.tagName, children);
         }
 
-        return new Node("", element.tagName, normalizedChildren);
+        return new Node("", element.tagName, flattenedChildren);
     }
 };
