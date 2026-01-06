@@ -10,7 +10,6 @@ export const formatJSON = <T>(value: T) => JSON.stringify(value, null, 4);
 export const formatCSVHeader = () => ["id", "headers", "claim", "name", "url", "date"].join(COLUMN_SEPARATOR);
 
 export const formatCSV = (patch: Patch, tree: AbstractPatchTree, header = ""): string => {
-
     if (!tree.content.length) {
         const {id, name, url, date} = patch;
         return [id, header, tree.header, name, url, date].join(COLUMN_SEPARATOR);

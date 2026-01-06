@@ -35,7 +35,8 @@ export default class Node {
                 }
             }).filter((child) => child.text || child.children.length);
 
-        const flattenedChildren: Node[] = [];
+        // merge inline elements
+        const mergedChildren: Node[] = [];
         for (let i = 0; i < normalizedChildren.length; ++i) {
             const child = normalizedChildren[i];
             if (child.isInline()) {
@@ -44,14 +45,14 @@ export default class Node {
                 }
             }
 
-            flattenedChildren.push(child);
+            mergedChildren.push(child);
         }
 
-        if (flattenedChildren.length === 1) {
-            const [{text, children}] = flattenedChildren;
+        if (mergedChildren.length === 1) {
+            const [{text, children}] = mergedChildren;
             return new Node(text, element.tagName, children);
         }
 
-        return new Node("", element.tagName, flattenedChildren);
+        return new Node("", element.tagName, mergedChildren);
     }
 };
