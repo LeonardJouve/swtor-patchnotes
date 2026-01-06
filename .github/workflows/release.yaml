@@ -1,0 +1,22 @@
+name: Release
+
+on: push
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm i
+      - run: npm start
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dump-${{ github.sha }}
+          name: Dump ${{ github.sha }}
+          files: |
+            dump.csv
