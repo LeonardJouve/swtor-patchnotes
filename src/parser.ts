@@ -32,24 +32,15 @@ export default class Parser {
         const childrenParser = new Parser(node.children);
         const content = childrenParser.parseAll();
 
+        while (!this.isEmpty() && this.peekNode().getHeaderRank() < node.getHeaderRank()) {
+            content.push(this.parseOne());
+        }
+
         if (node.isHeader()) {
-            if (!this.isEmpty() && this.peekNode().isHeader()) {
-                content.push(this.parseOne());
-
-                return {
-                    header: node.text,
-                    content,
-                };
-            } else {
-                while (!this.isEmpty() && !this.peekNode().isHeader()) {
-                    content.push(this.parseOne());
-                }
-
-                return {
-                    header: node.text,
-                    content,
-                };
-            }
+            return {
+                header: node.text,
+                content,
+            };
         }
 
         if (node.text) {

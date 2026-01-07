@@ -4,6 +4,7 @@ enum NodeType {
 }
 
 export default class Node {
+    private static HEADER_RANKS = ["H6", "H5", "H4", "H3", "H2"];
     text: string;
     tag: null|string;
     children: Node[];
@@ -15,7 +16,13 @@ export default class Node {
     }
 
     isHeader() {
-        return !this.children.length && this.tag && ["H2", "H3", "H4", "H5", "H6"].includes(this.tag);
+        return !this.children.length && this.tag && Node.HEADER_RANKS.includes(this.tag);
+    }
+
+    getHeaderRank() {
+        return this.tag ?
+            Node.HEADER_RANKS.findIndex((tag) => this.tag === tag) :
+            -1;
     }
 
     isInline() {
